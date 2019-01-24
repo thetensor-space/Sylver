@@ -1,6 +1,9 @@
 {
   src
   {
-
+    GlobalVars.m
+    Invariants.m
+    LinearSolver.m
+    Util.m
   }
 }
