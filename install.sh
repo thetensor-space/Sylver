@@ -5,7 +5,7 @@ PKGDIR="$(dirname $DIR)"                # Directory for dependencies
 START="${HOME}/.magmarc"                # Magma start file location
 
 # Dependencies and .spec locations
-ATTACH="AttachSpec(\"$DIR/CSS.spec\");"
+ATTACH1="AttachSpec(\"$DIR/CSS.spec\");"
 ATTACH2="AttachSpec(\"$PKGDIR/TensorSpace/TensorSpace.spec\");"
 
 
@@ -34,23 +34,23 @@ echo "Dependencies downloaded."
 if [ -f "$START" ]
 then
     echo "Found a Magma start file"
-    for A in "$ATTACH" "$ATTACH2" 
+    for A in "$ATTACH1" "$ATTACH2" 
     do
         if grep -Fxq "$A" "$START"
         then
             echo "Already installed"
         else
             echo "$A" >> "$START"
-            echo "Successfully installed"
         fi
     done
 else
     echo "Creating a Magma start file: $START"
     echo "// Created by an install file for Magma start up." > "$START"
-    for A in "$ATTACH" "$ATTACH2" 
+    for A in "$ATTACH1" "$ATTACH2" 
     do
         echo "$A" >> "$START"
     done
-    echo "Successfully installed"
 fi
+
+echo "Successfully installed"
 
