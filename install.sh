@@ -5,11 +5,11 @@ PKGDIR="$(dirname $DIR)"                # Directory for dependencies
 START="${HOME}/.magmarc"                # Magma start file location
 
 # Dependencies and .spec locations
-ATTACH1="AttachSpec(\"$DIR/CSS.spec\");"
+ATTACH1="AttachSpec(\"$DIR/Sylver.spec\");"
 ATTACH2="AttachSpec(\"$PKGDIR/TensorSpace/TensorSpace.spec\");"
 
 
-echo "CSS.spec is in $DIR"
+echo "Sylver.spec is in $DIR"
 
 
 echo "Dependencies will be downloaded to $PKGDIR"

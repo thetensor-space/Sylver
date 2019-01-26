@@ -9,7 +9,7 @@ PKGDIR="$(dirname $DIR)"
 cd "$DIR" 
 
 # Update main package
-echo "Updating CSS package."
+echo "Updating Sylver package."
 git pull -q origin master 
 
 echo "Now updating dependencies."
