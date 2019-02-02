@@ -672,7 +672,9 @@ intrinsic TensorOverCentroid( t::TenSpcElt ) -> TenSpcElt, Hmtp
   require IsCommutative(S) : "Centroid is not a commutative ring.";
   if Generators(S) eq {Generic(S)!1} then
     // It is already written over its centroid.
-    return t, _;
+    dims := [Dimension(X) : X in Frame(t)];
+    return t, Homotopism(t, t, [*IdentityMatrix(K, d) : d in dims*], 
+        HomotopismCategory(Valence(t)));
   end if;
   isit, X := IsCyclic(S);
   require isit : "Centroid is not a commutative local ring.";
