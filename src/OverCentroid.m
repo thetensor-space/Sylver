@@ -13,7 +13,7 @@ __Get_Field_Iso := function(E, F)
   f := DefiningPolynomial(E);
   R := PolynomialRing(F);
   factors := Factorization(R!f);
-  assert exists(p){ g[1] : g in factors | Degree(g[1]) eq 1 };
+  assert exists(p){g[1] : g in factors | Degree(g[1]) eq 1};
   p := LeadingCoefficient(p)^-1 * p;
   phi := hom< E -> F | R.1-p >;
   g := DefiningPolynomial(F);
@@ -28,6 +28,61 @@ __Get_Field_Iso := function(E, F)
   return phi, phi_inv;
 end function;
 
+
+// Given a matrix Z, constructs a sequence of subspaces that are Z-invariant. 
+__Get_Indecomp_Submods := function(Z)
+  K := BaseRing(Z);
+  d := Nrows(Z);
+  e := Degree(MinimalPolynomial(Z));
+  V := VectorSpace(K, d);
+
+  Spin := (S, M)
+    return Append(S, S[#S] * M);
+  end function;
+
+  Inds := [];
+  triv := sub< V | >;
+  while &+(Inds cat triv) ne V do
+    Q, pi := V/ &+(Inds cat triv);
+    S := [Q.1 @@ pi];
+    while #S lt e do
+      S := Spin(S, Z);
+    end while;
+    Append(~Ind, sub< V | S >);
+  end while;
+
+  return Inds;
+end function;
+
+
+// Given a sequence of submodules of U, return an isomorphism from U to V
+__Vector_Space_Iso := function(I)
+  K := BaseRing(I[1]);
+  d1 := Degree(I[1]);
+  d2 := Dimension(I[1]);
+  e := #I;
+  E := GF(#K^d2);
+  U := VectorSpace(K, d1);
+  V := VectorSpace(E, e);
+
+  // We construct the basic functions between the vector spaces
+  M := Matrix(&cat[Basis(S) : S in I]);
+  U_to_V := function(x)
+    u := x * M^-1;
+    return V![E!(u[(i-1)*d2+1..i*d2]) : i in [1..e]];
+  end function;
+  V_to_U := function(y)
+    u := &cat[Eltseq(z) : z in y];
+    return (U!u) * M;
+  end function;
+
+  // Construct isomorphism from U to V
+  phi := map< U -> V | x :-> U_to_V(x), y :-> V_to_U(y) >;
+  
+  return phi;
+end function;
+
+
 /* 
   Input: a tensor and a generator for the centroid's residue field. 
   Output: a tensor and a homotopism from the given tensor to the returned tensor
@@ -38,10 +93,11 @@ end function;
 */
 __Write_over_centroid := function(t, X) 
   v := Valence(t);
-  C := Centroid(t); // already computed, therefore stored
+  F := BaseRing(t);
+  C := Centroid(t); // already computed and saved
 
   // We write t over a standard copy.
-  K := ext< BaseRing(X) | MinimalPolynomial(X) >; 
+  K := ext< F | MinimalPolynomial(X) >; 
   E := GF(#K);
   phi, phi_inv := __Get_Field_Iso(K, E);
   coeffs := Eltseq(E.1 @ phi_inv);
@@ -49,10 +105,31 @@ __Write_over_centroid := function(t, X)
   assert Dimension(C) eq Dimension(sub< Generic(C) | Z>);
   assert MinimalPolynomial(Z) eq DefiningPolynomial(E);
 
-
+  // Break apart the blocks of Z. 
   projs := [*Induce(C, a) : a in [v-1..0 by -1]*];
+  blocks := [*Z @ pi : pi in projs*];
 
+  // Construct the indecomposable submodules for each block. 
+  Subs := [*__Get_Indecomp_Submods(B) : B in blocks*];
+
+  // Get the isomorphisms from original vector spaces to new vector spaces.
+  Isos := [*__Vector_Space_Iso(I) : I in Subs*];
+
+  // Build an anti-cohomotopism to construct our new tensor
+  Fused := RepeatPartition(TensorCategory(t));
+  Antichmtp := TensorCategory([-1 : i in [1..v-1]] cat [1], Fused);
+  Isos_achmtp := Isos;
+  for i in [1..v-1] do
+    Isos_achmtp[i] := Isos[i]^-1;
+  end for;
+  H_achmtp := Homotopism(Isos_achmtp, Antichmtp);
+
+  // Put it all together
+  s := t @ H_achmtp;
+  H := Homotopism(t, s, Isos, HomotopismCategory(v));
+  return s, H;
 end function;
+
 
 
 // =============================================================================
