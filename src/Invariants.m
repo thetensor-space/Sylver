@@ -326,31 +326,6 @@ __A_Derivations := function(seq, dims, A, repeats, k)
 end function;
 
 
-/* 
-  Kantor's Lemma as described in Brooksbank, Wilson, "The module isomorphism 
-    problem reconsidered," 2015.
-  Given isomorphic field extensions E and F of a common field k, return the 
-    isomorphisms from E to F and F to E.
-*/
-__GetFieldHom := function( E, F )
-  f := DefiningPolynomial(E);
-  R := PolynomialRing(F);
-  factors := Factorization(R!f);
-  assert exists(p){ g[1] : g in factors | Degree(g[1]) eq 1 };
-  p := LeadingCoefficient(p)^-1 * p;
-  phi := hom< E -> F | R.1-p >;
-  g := DefiningPolynomial(F);
-  R := PolynomialRing(E);
-  factors := Factorization(R!g);
-  i := 1;
-  repeat 
-    q := LeadingCoefficient(factors[i][1])^-1 * factors[i][1];
-    phi_inv := hom< F -> E | R.1-q >;
-    i +:= 1;
-  until (E.1 @ phi) @ phi_inv eq E.1 and (F.1 @ phi_inv) @ phi eq F.1;
-  return phi, phi_inv;
-end function;
-
 // A function to reduce the number of generators of a group or algebra.
 __GetSmallerRandomGenerators := function( X ) 
   if not IsFinite(BaseRing(X)) then
@@ -479,6 +454,8 @@ intrinsic Centroid( t::TenSpcElt, A::{RngIntElt} ) -> AlgMat
   if t`Cat`Contra then
     require 0 notin A : "Integers must be positive for cotensors.";
   end if;
+  require forall{X : X in Frame(t) | Dimension(X) gt 0} : 
+      "Modules in frame must be positive dimensional.";
   
   // |A| = 2 case.
   if #A eq 2 then
@@ -654,129 +631,6 @@ intrinsic SelfAdjointAlgebra( t::TenSpcElt, a::RngIntElt, b::RngIntElt )
   // Quick fix.
   KSqMatSp := func< K, n | KMatrixSpace(K, n, n) >;
   return __MakeAlgebra(t, {a, b}, true, KSqMatSp, basis);
-end intrinsic;
-
-intrinsic TensorOverCentroid( t::TenSpcElt ) -> TenSpcElt, Hmtp
-{Returns the tensor of t as a tensor over its centroid.}
-  // If co-tensor, then stop as t is a form.
-  if t`Cat`Contra then
-    return t;
-  end if;
-
-  // Compute centroid and make sure it is suitable.
-  Cent := Centroid(t);
-  K := BaseRing(Cent);
-  require IsFinite(K) : "Base ring must be finite."; // IsCyclic needs finite.
-  n := Nrows(Cent.1);
-  J, S := WedderburnDecomposition(Cent);
-  require IsCommutative(S) : "Centroid is not a commutative ring.";
-  if Generators(S) eq {Generic(S)!1} then
-    // It is already written over its centroid.
-    dims := [Dimension(X) : X in Frame(t)];
-    return t, Homotopism(t, t, [*IdentityMatrix(K, d) : d in dims*], 
-        HomotopismCategory(Valence(t)));
-  end if;
-  isit, X := IsCyclic(S);
-  require isit : "Centroid is not a commutative local ring.";
-  
-  // Construct field extensions and one "standard" field ext (given by 'GF').
-  D := t`Domain;
-  C := t`Codomain;
-  dims := [Dimension(X) : X in D] cat [Dimension(C)];
-  proj := [*Induce(Cent, a) : a in Reverse([0..#D])*];
-  blocks := [*X @ proj[i] : i in [1..#dims]*];
-  Exts := [*ext< K | MinimalPolynomial(blocks[i]) > : i in [1..#dims]*];
-  E := GF(#Exts[1]); // standard extension
-
-  // Construct isomorphisms to and from each Exts[i] and E.
-  phi := [**]; 
-  phi_inv := [**];
-  for i in [1..#Exts] do
-    f, g := __GetFieldHom(Exts[i], E);
-    Append(~phi, f);
-    Append(~phi_inv, g);
-  end for;
-  e := Degree(E, K);
-  Y := [* &+[ Eltseq(E.1@phi_inv[j])[i]*blocks[j]^(i-1) : i in [1..e] ] : j in [1..#phi] *];
-  
-  Spaces := Frame(t);
-  InvSubs := [* [ [ Spaces[i].1*Y[i]^j : j in [0..e-1] ] ] : i in [1..#Spaces] *]; // cent-invariant subspaces
-  // loop through the spaces and get the rest of the cent-invariant subspaces
-  for i in [1..#Spaces] do
-    notdone := true;
-    while notdone do
-      U := &+([ sub< Spaces[i] | B > : B in InvSubs[i] ]);
-      Q,pi := Spaces[i]/U;
-      if Dimension(Q) eq 0 then
-        notdone := false;
-      else
-        S := [ (Q.1@@pi)*Y[i]^j : j in [0..e-1] ];
-        Append(~InvSubs[i],S);
-      end if;
-    end while;
-  end for;
-  Bases := [* &cat[ S : S in InvSubs[i] ] : i in [1..#Spaces] *];
-  VS := [* VectorSpaceWithBasis( B ) : B in Bases *];
-
-  dom := [* VectorSpace( E, dims[i] div e ) : i in [1..#dims-1] *];
-  cod := VectorSpace( E, dims[#dims] div e );
-
-  ToNewSpace := function(x,i)
-    c := Coordinates(VS[i],VS[i]!x);
-    vec := [ E!(c[(j-1)*e+1..j*e]) : j in [1..dims[i] div e] ]; 
-    return vec;
-  end function;
-
-  ToOldSpace := function(y,i)
-    c := Eltseq(y);
-    vec := &cat[ Eltseq(c[j]) : j in [1..#c] ];
-    vec := &+[ vec[j]*Bases[i][j] : j in [1..#Bases[i]] ];
-    return vec;
-  end function;
-
-  Maps := [* map< D[i] -> dom[i] | x :-> dom[i]!ToNewSpace(x,i), y :-> D[i]!ToOldSpace(y,i) > : i in [1..#D] *];
-  Maps cat:= [* map< C -> cod | x :-> cod!ToNewSpace(x,#VS), y :-> C!ToOldSpace(y,#VS) > *];
-
-  F := function(x)
-    return (< x[i] @@ Maps[i] : i in [1..#x] > @ t) @ Maps[#Maps];
-  end function;
-
-  s := Tensor( dom, cod, F, t`Cat );
-  H := Homotopism( t, s, Maps, HomotopismCategory(t`Valence) );
-  if assigned t`Coerce then
-    s`Coerce := [* t`Coerce[i] * Maps[i] : i in [1..#t`Coerce] *];
-  end if;
-
-  if __SANITY_CHECK then
-    printf "Running sanity check (TensorOverCentroid)\n";
-    basis := CartesianProduct(<Basis(X) : X in t`Domain>);
-
-    // First verify that the maps produce an actual homotopism from t to s.
-    assert forall{x : x in basis | 
-      <x[i] @ Maps[i] : i in [1..#x]> @ s eq (x @ t) @ Maps[#Maps]
-      };
-
-    // Now verify that s is E-multilinear.
-    D := Domain(s);
-    E := BaseRing(s);
-    U, phi := UnitGroup(E);
-    for i in [1..10] do
-      C := [Random(U) @ phi : i in [1..#D]];
-      x := <Random(d) : d in D>;
-      y := <Random(d) : d in D>;
-      k := &*C;
-      z := <C[i]*x[i] + y[i] : i in [1..#x]>;
-      for i in [1..#D] do
-        u := z;
-        v := z;
-        u[i] := x[i];
-        v[i] := y[i];
-        assert z @ s eq C[i]*(u @ s) + (v @ s);
-      end for;
-    end for;
-  end if;
-
-  return s, H;
 end intrinsic;
 
 // ==============================================================================

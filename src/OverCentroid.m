@@ -4,6 +4,8 @@
 */
 
 
+import "GlobalVars.m" : __SANITY_CHECK;
+
 /* 
   Kantor's Lemma as described in Brooksbank, Wilson, "The module isomorphism 
   problem reconsidered," 2015. Given isomorphic field extensions E and F of a 
@@ -36,19 +38,19 @@ __Get_Indecomp_Submods := function(Z)
   e := Degree(MinimalPolynomial(Z));
   V := VectorSpace(K, d);
 
-  Spin := (S, M)
+  Spin := function(S, M)
     return Append(S, S[#S] * M);
   end function;
 
-  Inds := [];
+  Inds := [PowerRSpace(K, d, e)| ];
   triv := sub< V | >;
-  while &+(Inds cat triv) ne V do
-    Q, pi := V/ &+(Inds cat triv);
+  while &+(Inds cat [triv]) ne V do
+    Q, pi := V/ &+(Inds cat [triv]);
     S := [Q.1 @@ pi];
     while #S lt e do
       S := Spin(S, Z);
     end while;
-    Append(~Ind, sub< V | S >);
+    Append(~Inds, sub< V | S >);
   end while;
 
   return Inds;
@@ -68,17 +70,20 @@ __Vector_Space_Iso := function(I)
   // We construct the basic functions between the vector spaces
   M := Matrix(&cat[Basis(S) : S in I]);
   U_to_V := function(x)
-    u := x * M^-1;
+    u := Eltseq(x * M^-1);
     return V![E!(u[(i-1)*d2+1..i*d2]) : i in [1..e]];
   end function;
   V_to_U := function(y)
-    u := &cat[Eltseq(z) : z in y];
+    v := Eltseq(y);
+    u := &cat[Eltseq(z) : z in v];
     return (U!u) * M;
   end function;
 
   // Construct isomorphism from U to V
   phi := map< U -> V | x :-> U_to_V(x), y :-> V_to_U(y) >;
   
+  assert (U!0) @ phi eq V!0;
+
   return phi;
 end function;
 
@@ -126,7 +131,7 @@ __Write_over_centroid := function(t, X)
 
   // Put it all together
   s := t @ H_achmtp;
-  H := Homotopism(t, s, Isos, HomotopismCategory(v));
+  H := Homotopism(t, s, Isos, HomotopismCategory(v) : Check := __SANITY_CHECK);
   return s, H;
 end function;
 
@@ -136,7 +141,7 @@ end function;
 //                                  Intrinsics
 // =============================================================================
 
-intrinsic WriteTensorOverCentroid( t::TenSpcElt ) -> TenSpcElt, Homotopism
+intrinsic TensorOverCentroid( t::TenSpcElt ) -> TenSpcElt, Hmtp
 {Returns the fully nondegenerate indecomposbale tensor over a field isomorphic 
 to the residue field of the centroid of t.}
   require IsFinite(BaseRing(t)) : "Base ring of tensor must be finite.";
@@ -145,6 +150,7 @@ to the residue field of the centroid of t.}
 
   // In case already over its residue field, do nothing.
   if Dimension(S) eq 1 then
+    K := BaseRing(t);
     dims := [Dimension(X) : X in Frame(t)];
     return t, Homotopism(t, t, [*IdentityMatrix(K, d) : d in dims*], 
         HomotopismCategory(Valence(t)));
@@ -154,7 +160,8 @@ to the residue field of the centroid of t.}
   require IsCommutative(S) : "Tensor is not fully nondegenerate.";
   cyclic_check, X := IsCyclic(S);
   require cyclic_check : "Centroid must be a commutative local ring.";
-  require IsIrreducible(MinimalPolynomial(X)) : "Tensor must be indecomposable."
+  require IsIrreducible(MinimalPolynomial(X)) : 
+      "Tensor must be indecomposable.";
   
   // Now we write t over S.
   s, H := __Write_over_centroid(t, X);

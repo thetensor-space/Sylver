@@ -4,6 +4,7 @@
     GlobalVars.m
     Invariants.m
     LinearSolver.m
+    OverCentroid.m
     Util.m
   }
 }
