@@ -50,7 +50,7 @@ __Get_Indecomp_Submods := function(Z)
     while #S lt e do
       S := Spin(S, Z);
     end while;
-    Append(~Inds, sub< V | S >);
+    Append(~Inds, VectorSpaceWithBasis(S));
   end while;
 
   return Inds;
@@ -82,7 +82,10 @@ __Vector_Space_Iso := function(I)
   // Construct isomorphism from U to V
   phi := map< U -> V | x :-> U_to_V(x), y :-> V_to_U(y) >;
   
+  // Some checks
   assert (U!0) @ phi eq V!0;
+  assert forall{b : b in Basis(U) | (b @ phi) @@ phi eq b};
+  assert forall{b : b in Basis(V) | (b @@ phi) @ phi eq b};
 
   return phi;
 end function;
