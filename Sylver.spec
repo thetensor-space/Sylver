@@ -5,6 +5,7 @@
     Invariants.m
     LinearSolver.m
     OverCentroid.m
+    Sylver.m
     Util.m
   }
 }
