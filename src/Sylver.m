@@ -28,7 +28,9 @@ intrinsic SylvesterDenseSolve( A::TenSpcElt, B::TenSpcElt, C::TenSpcElt ) -> .
         We build two "pillars" M = [P1 | P2].
     */
     // Vector
-    v := Matrix(K, a*b*c, 1, StructureConstants(C));
+    C_blocks := AsMatrices(C, 2, 0);
+    C_flats := [Eltseq(X) : X in C_blocks];
+    v := Matrix(K, a*b*c, 1, &cat(C_flats));
 
     // Pillar #2
     B_slices := AsMatrices(B, 0, 1);
@@ -49,7 +51,33 @@ intrinsic SylvesterDenseSolve( A::TenSpcElt, B::TenSpcElt, C::TenSpcElt ) -> .
     consistent, x := IsConsistent(Transpose(M), Transpose(v));
     N := NullspaceOfTranspose(M);
 
+    // a sanity checker
+    _check := function(X, Y : homogeneous := false)
+        A_forms := SystemOfForms(A);
+        B_forms := SystemOfForms(B);
+        if homogeneous then 
+            C_forms := [ZeroMatrix(K, a, b) : i in [1..c]];
+        else
+            C_forms := SystemOfForms(C);
+        end if;
+        for k in [1..c] do
+            if X*A_forms[k] + B_forms[k]*Y ne C_forms[k] then
+                return false;
+            end if;
+        end for;
+        return true;
+    end function;
+
+    z := Eltseq(Random(N));
+    X := Matrix(K, a, s, z[1..a*s]);
+    Y := Transpose(Matrix(K, b, t, z[a*s + 1..#z]));
+    assert _check(X, Y : homogeneous := true);
+
     if consistent then
+        y := Eltseq(x);
+        X := Matrix(K, a, s, y[1..a*s]);
+        Y := Transpose(Matrix(K, b, t, y[a*s + 1..#y]));
+        assert _check(X, Y);
         return x, N, <M, v>;
     else
         return false, N, <M, v>;
