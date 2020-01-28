@@ -1,0 +1,98 @@
+
+/*
+ * QuickSylver Solver
+ * CC-BY Joshua Maglione and James B. Wilson, 2019-2020.
+ */
+
+
+/*
+ * t - TenSpcElt
+ *
+ * Here is an outter bound test:
+ * Foliate and do Echelon on full matrix.
+ *
+ */
+FaceRank := function(mats)
+    m := Nrows(mats[1]); n := Ncols(mats[1]);
+    k := Minimum( #mats, (n div m));
+    V := VerticalJoin( mats[1..k] );
+    E, T := EchelonForm(V);
+    while Rank(E) lt n do
+        k := k+1;
+        V := VerticalJoin( V, mats[k]);
+        E, T := EchelonForm(V);
+    end while;
+    return k;
+end function;
+
+// This is a hack -- the pivot should be known from echelon 
+// but I can't find how to get that -JBW
+pivots := function(m)
+    ps := [];
+    for i in [1..Rank(m)] do
+        k := 1;
+        while m[i,k] eq 0 do 
+            k := k+1;
+        end while;
+        ps := Append(ps, k);//<i,k>);
+    end for;
+    return ps;
+end function;
+/*
+FaceElim := function(mats)
+    m := Nrows(mats[1]); n := Ncols(mats[1]);
+    k := Minimum( #mats, (n div m));
+    V := VerticalJoin( mats[1..k] );
+    E, T := EchelonForm(V);
+    p1 := pivots(E);
+    L := mats[p1];
+    //R := 
+    while Rank(E) lt n do
+        k := k+1;
+        V := VerticalJoin( V, mats[k]);
+        E, T := EchelonForm(V);
+    end while;
+    return k;
+end function;
+*/
+clr := function(e,m,ps)
+    if #ps eq 0 then return m; end if;
+
+    et := Transpose(e);// so that et[i] is column
+    mt := Transpose(m);
+
+    qs := [ i : i in [1..Nrows(mt)] | not (i in ps) ];
+    
+    bt := Matrix(et[qs]);
+    ct := Matrix(mt[ps]);
+    dt := Matrix(mt[qs]);
+    
+    rt := dt-bt*ct;
+    zt := Parent(mt)!0;
+    for i in [1..#qs] do
+        zt := InsertBlock(zt,rt[i],qs[i],1);
+    end for;
+    return Transpose(zt);
+end function;
+
+FaceElim := function(ms,ps)
+    rs := [];
+    while #ms gt 0 do 
+        // FE m::tail = ...
+        m := ms[1]; tail := ms[2..#ms];
+
+        e,t := EchelonForm(m);
+        rs := Append(rs, e);
+        ps2 := ps cat pivots(e);
+
+        // Clear what you can.
+        ms := [clr(e,n,ps2) : n in tail ];
+        
+//        fe := FaceElim(ns,ps);
+//    rs := Append([* e *],fe);
+    end while;
+    return rs;
+end function;
+
+// d:=20; e:= 2; as := [RandomMatrix(GF(7), e,d) : i in [1..d]];
+// time fe := FaceElim(as, []);
