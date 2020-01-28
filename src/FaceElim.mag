@@ -38,7 +38,7 @@ pivots := function(m)
     end for;
     return ps;
 end function;
-/*
+
 FaceElim := function(mats)
     m := Nrows(mats[1]); n := Ncols(mats[1]);
     k := Minimum( #mats, (n div m));
@@ -54,7 +54,7 @@ FaceElim := function(mats)
     end while;
     return k;
 end function;
-*/
+
 clr := function(e,m,ps)
     if #ps eq 0 then return m; end if;
 
@@ -96,3 +96,59 @@ end function;
 
 // d:=20; e:= 2; as := [RandomMatrix(GF(7), e,d) : i in [1..d]];
 // time fe := FaceElim(as, []);
+
+
+phaseA = function( as, bs, cs )
+    K := BaseRing(as[1]);
+    // guess face rank.
+    s := Nrows(as[1]);
+    a := Nrows(bs[1]);
+    t := Ncols(bs[1]);
+    b := Ncols(as[1]);
+    c := #as;  
+assert c eq #bs;
+
+    // Get Face Elim on A and B.
+    rA := Ceiling( s / c );
+    A := VerticalJoin(as[1..rA]);
+    E1, T1 := EchelonForm(A);
+assert Rank(E1) eq Ncols(E1);
+    I1 := ExtractBlock(E1, 1, 1, Ncols(E1), Ncols(E1));
+
+    rB := Ceiling( t / c );
+    B := VerticalJoin(bs[1..rB]);
+    E2, T2 := EchelonForm(B);
+assert Rank(E2) eq Ncols(E2);
+    I2 := ExtractBlock(E2, 1, 1, Ncols(E2), Ncols(E2));
+
+    Bis := [KroneckerProduct(IdentityMatrix(K, rA), Bi) : 
+        Bi in bs];
+    Dis := [T1*Bi : Bi in Bis]; 
+    Dis_trun := [ExtractBlock(Di, 1, 1, Ncols(E1), Ncols(Di)) :
+        Di in Dis];
+
+
+    DI := [ 
+        T2*VerticalJoin([
+            -ExtractBlock(as[rA + i],1,1,Ncols(E1),Ncols(E1))*Di 
+                : Di in Dis_trun])
+                 : i in [1..(b-rA)] 
+    ];
+
+    DI_trun := [
+        ExtractBlock(Di, 1, 1, Ncols(E2), Ncols(Di)) : 
+            Di in DI
+    ];
+
+    // Calculate overdetermined.
+    rC := Ceiling( rA*t/c*(a-rB) );
+    F := VerticalJoin( [ 
+        VerticalJoin([-as[rA+i]*D[rB+j] : j in [1..(rB-a)]])
+        -VerticalJoin(bs[rB+j..a])*DI[i] 
+        : j in [1..rC]
+    ]);
+
+    null := NullSpace(Transpose(F));
+    return null;
+
+end function;
