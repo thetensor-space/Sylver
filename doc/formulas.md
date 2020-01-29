@@ -96,3 +96,30 @@ with $T_0$ upper triangular.  We don't create this matrix we just think of this 
 
 
 ---
+
+
+Cutting down $s$ and $t$.
+
+$$
+(\forall i)(XA_i+B_i Y=C_i)
+$$
+implies that for $E$ and $F$,
+$$
+(\forall i)(EXA_iF+EB_i Y F= EC_iF).
+$$
+I think of $E$ and $F$ as projection matrices.  E.g. solve for the first few rows of $X$ and the first few columns of $Y$.  Because this one is a forward implication, if the second does not have a solution then neither does the first.  At the extreme this would be a single row vector $x$, single column $y$ such that
+$$
+(\forall i)(x A_{*1i}+B_{1*i}y=C_{11i})
+$$
+You can also take more interesting $E$ and $F$ so that its a random linear combination of slices.  But lets just assume the tensors have been mixed enough.  So 
+$$
+\begin{bmatrix} A & 0 \\ 0 & B \end{bmatrix}\begin{bmatrix} x\\ y \end{bmatrix}=c.
+$$
+Which is $O(d^3)$ to check of course.
+
+
+It is also possible to do things like this:
+$$
+(\forall i)(XEA_i+B_iFY= C_i).
+$$
+This is simply something different.  It would serve to cut down the $s$ and $t$.
