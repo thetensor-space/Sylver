@@ -123,3 +123,71 @@ $$
 (\forall i)(XEA_i+B_iFY= C_i).
 $$
 This is simply something different.  It would serve to cut down the $s$ and $t$.
+
+----
+
+## Backsolve
+
+If
+
+$$
+\begin{bmatrix}
+T_1 & V\\
+0  & T_2 
+\end{bmatrix}
+\begin{bmatrix}
+x_1\\
+x_2
+\end{bmatrix}
+$$
+$$
+=\begin{bmatrix}
+c_1\\
+c_2
+\end{bmatrix}
+$$
+
+Then $T_2 x_2=c_2$ and $T_1 x_1+vx_2=c_1$ so 
+having solved for $x_2$ we compute $T_1x_1=c_1-v x_2$.
+So assuming the cost of solving $k\times k$ triangular is $T(k)$ then
+solving $(k+1)\times (k+1)$ triangular is 
+$$
+T(k+1)=T(k)+2k+1
+$$
+By master theorem
+$$
+T(n)=n+2\sum_i=1^n i\in \Theta(n^2).
+$$
+Therefore back solving a dense triangular is $O(n^2)$.
+
+Now in our case we back solve a structured term.
+$$
+\begin{bmatrix}
+T_1 & & & & & & D_1\\
+& \ddots & &\\ 
+& & T_1 & & \\
+& & & T_2 & & \\
+& & & & \ddots & & \vdots\\
+& & & & & T_2 & D_{a+b-r} \\
+& & & & & &  D_{a+b-r+1}
+\end{bmatrix}
+$$
+Which we can back solve as 
+$$
+T_1 x_1  =c_1-D_1 x_{a+b-r+1}
+$$
+$$
+T_1 x_2  =c_2-D_2 x_{a+b-r+1}
+$$
+...
+$$
+T_1 x_b  =c_b-D_b x_{a+b-r+1}
+$$
+...
+$$
+T_2 x_{b+1}  =c_{b+1}-D_{b+1} x_{a+b-r+1}
+$$
+...
+
+Each is solved in $O(d^2)$.  There are $O(d)$ of these
+Total is $O(d^3)$ to back solve
