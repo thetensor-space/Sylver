@@ -8,6 +8,26 @@
     This file contains functions we use to test the various approaches to solving Sylvester equations. 
 */
 
+// a sanity checker
+intrinsic SylvesterCheck( 
+    A::TenSpcElt, 
+    B::TenSpcElt, 
+    C::TenSpcElt, 
+    X::Mtrx, 
+    Y::Mtrx ) -> BoolElt
+    {Decides if (X, Y) is a solution to the Sylvester equation relating the tensors A, B, and C.}
+    c := Dimension(Codomain(C));
+    A_forms := SystemOfForms(A);
+    B_forms := SystemOfForms(B);
+    C_forms := SystemOfForms(C);
+    for k in [1..c] do
+        if X*A_forms[k] + B_forms[k]*Y ne C_forms[k] then
+            return false;
+        end if;
+    end for;
+    return true;
+end intrinsic;
+
 intrinsic SylvesterDenseSolve( A::TenSpcElt, B::TenSpcElt, C::TenSpcElt ) -> .
 {Returns the tuple of matrices (X, Y) along with the vector space of solutions (to the homogeneous version) to the Sylvester equation: XA + BY = C.}
     K := BaseRing(C);
@@ -51,34 +71,20 @@ intrinsic SylvesterDenseSolve( A::TenSpcElt, B::TenSpcElt, C::TenSpcElt ) -> .
     consistent, x := IsConsistent(Transpose(M), Transpose(v));
     N := NullspaceOfTranspose(M);
 
-    // a sanity checker
-    _check := function(X, Y : homogeneous := false)
-        A_forms := SystemOfForms(A);
-        B_forms := SystemOfForms(B);
-        if homogeneous then 
-            C_forms := [ZeroMatrix(K, a, b) : i in [1..c]];
-        else
-            C_forms := SystemOfForms(C);
-        end if;
-        for k in [1..c] do
-            if X*A_forms[k] + B_forms[k]*Y ne C_forms[k] then
-                return false;
-            end if;
-        end for;
-        return true;
-    end function;
-
     z := Eltseq(Random(N));
     X := Matrix(K, a, s, z[1..a*s]);
     Y := Transpose(Matrix(K, b, t, z[a*s + 1..#z]));
-    assert _check(X, Y : homogeneous := true);
+    Z := KTensorSpace(K, [a, b, c])!0;
+    // Check that (X, Y) is a solution to the homogenous version.
+    assert SylvesterCheck(A, B, Z, X, Y);
 
     if consistent then
         y := Eltseq(x);
         X := Matrix(K, a, s, y[1..a*s]);
         Y := Transpose(Matrix(K, b, t, y[a*s + 1..#y]));
-        assert _check(X, Y);
-        return x, N, <M, v>;
+        // Check that (X, Y) is a solution.
+        assert SylvesterCheck(A, B, C, X, Y);
+        return X, Y, N, <M, v>;
     else
         return false, N, <M, v>;
     end if;
