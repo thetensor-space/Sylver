@@ -243,7 +243,8 @@ end function;
 intrinsic SylvesterQuickSolve(
     A::TenSpcElt,
     B::TenSpcElt,
-    C::TenSpcElt
+    C::TenSpcElt : 
+    verbose_print := true
 ) -> BoolElt, .
 {Decides if there exists a solution to the corresponding Sylvester equation. If so, returns a solution (X, Y).}
     K := BaseRing(C);
@@ -349,7 +350,32 @@ intrinsic SylvesterQuickSolve(
     v_H := Matrix(K, 1, c*(a - r_B)*(b - r_A), 
         &cat([Eltseq(h) : h in H_vecs]));
 
-    sol, x := IsConsistent(Transpose(D), v_H);
+    // Now we push all zero rows to the bottom. 
+    rho_A := Rank(U_A);
+    rho_B := Rank(U_B);
+    z_A := Nrows(U_A) - rho_A;
+    z_B := Nrows(U_B) - rho_B;
 
-    return sol, x, Transpose(D), v_H;
+    // Create the first matrix and C-vector from the U_A's.
+    Z1 := [ExtractBlock(L_A*KroneckerProduct(I_r_A, B), c*r_A - z_A + 1, 1, 
+        z_A, t*r_A) : B in B_slices];
+    v_z1 := &cat[Eltseq(v)[c*r_A - z_A + 1..c*r_A] : v in F_vecs];
+
+    // Create the second matrix from the U_B's.
+    Z2 := [ExtractBlock(L_B*M, c*r_B - z_B + 1, 1, z_B, t*r_A) : M in M_mats];
+    v_z2 := &cat[Eltseq(v)[c*r_B - z_B + 1..c*r_B] : v in G_vecs];
+
+    if verbose_print then 
+        print U_A, U_B;
+        print Z1, v_z1;
+        print Z2, v_z2;
+    end if;
+
+    // Put everything together. 
+    D_z := VerticalJoin(D, VerticalJoin(VerticalJoin(Z1), VerticalJoin(Z2)));
+    v_z := HorizontalJoin(v_H, Matrix(K, 1, #v_z1 + #v_z2, v_z1 cat v_z2));
+
+    sol, x := IsConsistent(Transpose(D_z), v_z);
+
+    return sol, Transpose(D_z), v_z;
 end intrinsic;
