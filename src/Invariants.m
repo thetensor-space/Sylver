@@ -165,7 +165,6 @@ __A_Centroid := function(seq, dims, A : repeats := {})
   // Solve the linear equations.
   vprintf TensorSpace, 1 : "Computing the nullspace of a %o by %o matrix.\n", Ncols(M),
     Nrows(M);
-  print M;
   N := NullspaceOfTranspose(M);
   delete M;
 
@@ -296,7 +295,7 @@ __A_Derivations := function(seq, dims, A, repeats, k)
   // Solve the linear system.
   vprintf TensorSpace, 1 : "Computing the nullspace of a %o by %o matrix.\n", 
     Ncols(M), Nrows(M);
-  print M;
+
   N := NullspaceOfTranspose(M);
   B := Basis(N);
   if #B eq 0 then
