@@ -1,4 +1,8 @@
-// no Lagrangian in Magma, apparently
+          /*---- Martin's first construction ----*/
+          
+/*
+
+// no Laplacian in Magma, apparently
 __laplacian := function (f)
   r := Rank (Parent (f));
 return &+ [ Derivative (Derivative (f, i), i) : i in [1..r] ];
@@ -12,7 +16,6 @@ Laplacian := function (f, p)
 return g;
 end function;
 
-//K := Rationals ();
 K := RealField (10);
 R<x,y,z> := PolynomialRing (K,3);
 
@@ -46,16 +49,6 @@ B4 := [ 8*z^4-24*z^2*(x^2+y^2) + 3*(x^2+y^2)^2 ,
         z*(3*x^2*y-y^3) , 
         x^4-6*x^2*y^2+y^4 , 
         x*y*(x^2-y^2) ];
-        
-// test
-/*
-isit := true;
-for i in [1..1000] do
-  f := Random (B1) * Random (B2) * Random (B3) * Random (B4);
-  isit and:= (Integers ()!(Laplacian (f, 5)) mod (32*Factorial (6)) eq 0);
-end for;
-isit;
-*/
 
 __entry := function (a, b, c, d)
 return Laplacian (a * b * c * d, 5) / (32 * Factorial (6));
@@ -72,5 +65,74 @@ for i in [1..3] do
       end for;
     end for;
   end for;
+end for;
+
+*/
+
+        /*---- Martin's second construction ----*/
+        
+K := RealField (10);
+
+// x function for the surface
+__xscale := function (i)
+return (30+i)^2;
+end function;
+
+// y function for the surface
+__yscale := function (i)
+return (40+i)^2;
+end function;
+
+// z function for the surface
+__zscale := function (i)
+return (50+i)^2;
+end function;
+
+// size of the tensor
+xsize := 5;
+ysize := 10;
+zsize := 10;
+
+// thicknes of the surface
+width := 1;
+
+
+// normalize the x, y, z functions 
+__xnorm := Abs(__xscale(xsize) - __xscale(1));
+__xavg := (__xscale(xsize) + __xscale(1)) /2 ;
+
+__ynorm := Abs(__yscale(ysize) - __yscale(1));
+__yavg := (__yscale(ysize) + __yscale(1)) /2 ;
+
+__znorm := Abs(__zscale(zsize) - __zscale(1));
+__zavg := (__zscale(zsize) + __zscale(1)) /2 ;
+
+
+// computes the equation of the surface
+__surface_eq := function(i,j,k)
+return xsize*(__xscale(i) - __xavg)/__xnorm + ysize*(__yscale(j) - __yavg)/__ynorm + zsize*(__zscale(k) - __zavg)/__znorm;  
+end function;
+
+
+// generate entries which are random numbers with norm ~ exp( - C (surface_eq)^2)
+__entry := function(i,j,k)
+	s := 2* __surface_eq(i,j,k)/width;
+	r := 0;
+	// no need to randomly generate tiny numbers
+	if Abs(s) gt 5 then
+		r:= __add_noise(0, Exp( -s*s ) );
+	end if;
+	return r;
+end function;
+
+
+// builds the tensor
+t := Tensor ([xsize,ysize,zsize] , [ K!0 : s in [1..xsize*ysize*zsize] ]);
+for i in [1..xsize] do
+	for j in [1..ysize] do 
+		for k in [1..zsize] do
+			Assign (~t, [i,j,k], __entry (i,j,k));
+		end for;
+	end for;
 end for;
 
