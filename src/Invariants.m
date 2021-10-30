@@ -107,6 +107,64 @@ end function;
     squares of the dimensions supported by A, then this algorithm constructs a 
     basis for the kernel of a K-matrix with (|A|-1)*D rows and S columns.
 */
+__A_Centroid_mat := function(seq, dims, A : repeats := {})
+  // Initial setup.
+  a := Minimum(A);
+  B := A diff {a};
+  d := &*(dims);
+  K := Parent(seq[1]);
+  v := #dims;
+  d_a := dims[v-a];
+  M := ZeroMatrix(K, #B*d, &+[dims[v-x]^2 : x in A]);
+  I := IdentityMatrix(K, d_a);
+  r_anchor := Ncols(M) - d_a^2 + 1;
+  
+  vprintf TensorSpace, 1 : "Constructing a %o by %o matrix over %o.\n", 
+    Ncols(M), Nrows(M), K;
+  
+  // Construct the appropriate matrix. 
+  // We place the a block on the right-most side of M.
+  row := 1;
+  col := 1;
+  while #B gt 0 do
+    b := Maximum(B);
+    B := B diff {b};
+    d_b := dims[v-b];
+
+    Mats := __GetForms(seq, dims, b, a : op := true);
+    LeftBlocks := [Matrix(K, [Eltseq(Mats[k][i]) : k in [1..#Mats]]) : 
+      i in [1..d_a]];
+    Mats := [Transpose(X) : X in Mats];
+    RightBlock := -Matrix(K, &cat[[Eltseq(Mats[k][j]) : k in [1..#Mats]] : 
+      j in [1..d_b]]);
+    delete Mats;
+
+    // Building the matrix strip for the equation x_a = x_b.
+    // The blocks corresponding to the x_a part.
+    InsertBlock(~M, KroneckerProduct(I, RightBlock), row, r_anchor);
+    delete RightBlock;
+
+    // The blocks corresponding to the x_b part. 
+    for i in [1..#LeftBlocks] do
+      InsertBlock(~M, KroneckerProduct(IdentityMatrix(K, d_b), LeftBlocks[i]), 
+        row, col);
+      row +:= d_b*Nrows(LeftBlocks[i]);
+    end for;
+    delete LeftBlocks;
+    
+    col +:= d_b^2;
+  end while;
+
+  // Check repeats.
+  if #repeats ne 0 then
+    vprint TensorSpace, 1 : "Adding in possible fusion data.";
+    R := __FusionBlock(K, dims, repeats, A);
+    M := VerticalJoin(R, M);
+  end if;
+
+  return M;
+end function;
+
 __A_Centroid := function(seq, dims, A : repeats := {})
   // Initial setup.
   a := Minimum(A);
@@ -373,6 +431,36 @@ __MakeAlgebra := function(t, A, F, ALG, B);
   return Operators, B;
 end function;
 
+// Given a tensor t, a set of coords A, a boolean F, a seq of 
+// tuples B, and a string obj return space approximiating 
+// the algebra derived from the tensor. 
+__ApproximateAlgebra := function(t, A, F, B);
+  coords := Reverse(Sort([a : a in A]));
+
+  // if we should reduce by fuse, do it.
+  if F then
+    B, A_rep := __ReduceByFuse(B, t`Cat`Repeats, coords);
+  else
+    A_rep := A;
+
+    // if this is a nuke, then transpose might be required.
+    if (#A eq 2) and (0 notin A) then
+      for i in [1..#B] do
+        B[i][2] := Transpose(B[i][2]);
+      end for;
+    end if;
+
+  end if;
+
+  // put it all together and leave a trail of breadcrumbs. 
+  basis := [DiagonalJoin(T) : T in B];
+  MA := KMatrixSpace(BaseRing(t), Nrows(basis[1]), Nrows(basis[1]));
+  Operators := sub< MA | basis >;
+  //Operators := __GetSmallerRandomGenerators(Operators);
+  //DerivedFrom(~Operators, t, A, A_rep : Fused := F);
+
+  return Operators, B;
+end function;
 
 /* 
   A function called multiple times in the sanity check.
@@ -492,6 +580,76 @@ intrinsic Centroid( t::TenSpcElt, A::{RngIntElt} ) -> AlgMat
 
   // Checkpoint!
   t`Derivations[2][ind] := basis;
+  return C;
+end intrinsic;
+
+intrinsic CentroidSVD( t::TenSpcElt, A::{RngIntElt} ) -> .
+{Returns the A-centroid of a real or complex tensor t by SVD methods.}
+  // Check that A makes sense.
+  require Type(BaseRing(t)) eq FldRe : "Must be a real field for SVD."
+  require A subset {0..Valence(t)-1} : "Unknown tensor coordinates.";
+  require #A ge 2 : "Must be at least two coordinates.";
+  if t`Cat`Contra then
+    require 0 notin A : "Integers must be positive for cotensors.";
+  end if;
+  require forall{X : X in Frame(t) | Dimension(X) gt 0} : 
+      "Modules in frame must be positive dimensional.";
+  
+  // // |A| = 2 case.
+  // if #A eq 2 then
+  //   return NucleusSVD(t, Maximum(A), Minimum(A));
+  // end if;
+
+  // // Check if the centroid has been computed before.
+  // ind := Index(t`Derivations[1], <A, 2>);
+  // // If it has been, return it as an algebra. 
+  // if Type(t`Derivations[2][ind]) ne RngIntElt then
+  //   C := __MakeAlgebra(t, A, true, MatrixAlgebra, t`Derivations[2][ind]);
+  //   return C;
+  // end if;
+   
+  // Now it hasn't been computed before, and we need to compute something.
+  // Make sure we can obtain the structure constants. 
+  try
+    _ := Eltseq(t);
+  catch err
+    error "Cannot compute structure constants.";
+  end try;
+
+  mat := __A_Centroid_mat(Eltseq(t), [Dimension(X) : X in Frame(t)], A : 
+    repeats := t`Cat`Repeats);
+  S, U, V := SingularValueDecomposition(Transpose(mat));
+  // Detect the singular values clustered around 0.
+  sings := [S[i][i] : i in [1..Minimum(Nrows(S),Ncosl(S))]];
+  
+  // Scan last to first looking at the slopes of the normalized 
+  // SVD plot adjacent points.  The first inflection point (slope below -1)
+  // is where we stop.
+  slope := 0;
+  start := #sings;
+  while (start > 1) and (sings[start-1]/sings[start] gt 5 ) do
+    start := start - 1;
+  end while;
+  // while (start > 1) and (slope gt -1 ) do
+  //   slope := (sings[start-1]-sings[start])/(#sings*sings[1]);
+  //   start := start - 1;
+  // end while;
+
+  // Gather the singular vectors incident on these.
+  gens := [ U[i] : i in [start..Nrows(U)]];
+
+
+  // Construct algebra and reduce to minimal representation
+  C := __ApproximateAlgebra(t, A, true, basis);
+
+  // // Sanity check
+  // if __SANITY_CHECK then
+  //   printf "Sanity check (Centroid)\n"; 
+  //   assert __OperatorSanityCheck(C, 2);
+  // end if;
+
+  // // Checkpoint!
+  // t`Derivations[2][ind] := basis;
   return C;
 end intrinsic;
 
