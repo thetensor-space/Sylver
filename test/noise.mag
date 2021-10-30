@@ -35,3 +35,36 @@ adsl2 := function()
   G := Matrix(K,3,3, [0,0,0, -1,0,0, 0,-2,0] );
   return Tensor( [E,F,G], 2,1);
 end function;
+
+test := function( d )
+  // i+j=k
+  TS := KTensorSpace( RealField(5), [d,d,d]);
+  T := TS!0;
+  for i in [1..d] do
+    for j in [1..d] do
+      for k in [1..d] do
+        if (i+j+k) eq (2*d-1) then 
+          Assign(~T, [i,j,k], Random([1..5]));
+        end if;
+      end for;
+    end for;
+  end for;
+  return T;
+end function;
+
+
+test2 := function( d )
+  // i+j=k
+  TS := KTensorSpace( RealField(5), [d,d,d]);
+  T := TS!0;
+  for i in [1..d] do
+    for j in [1..d] do
+      for k in [1..d] do
+        if (i*i+j*j+k*k) eq (2*d-1) then 
+          Assign(~T, [i,j,k], Random([1..5]));
+        end if;
+      end for;
+    end for;
+  end for;
+  return T;
+end function;
