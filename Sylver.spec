@@ -3,6 +3,7 @@
   {
     GlobalVars.m
     Invariants.m
+    InvariantsSVD.mag
     LinearSolver.m
     OverCentroid.m
     Util.m
