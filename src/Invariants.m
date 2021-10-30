@@ -776,7 +776,7 @@ end intrinsic;
 
 intrinsic DerivationAlgebraSVD( t::TenSpcElt, A::{RngIntElt}, k::RngIntElt ) -> 
   AlgMatLie
-{Returns the (A, k)-derivation algebra of the tensor t.}
+{Returns the (A, k)-derivation algebra of a real tensor t using SVD method.}
   // Make sure A makes sense.
   //// BUG OF VALENCE
   require A subset {0..Valence(t)} : "Unknown coordinates.";
