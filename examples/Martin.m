@@ -96,14 +96,15 @@ __entry := function(x,y,z, width,i,j,k)
 	s := 2* __surface_eq(x,y,z, i,j,k)/width;
 	r := 0;
 	// no need to randomly generate tiny numbers
-	if Abs(s) gt 5 then
+	if Abs(s) lt 5 then
 		r:= __add_noise(0, Exp( -s*s ) );
 	end if;
-	return r;
+//  r := Exp(-s*s);
+	return 100*r;
 end function;
 
 MartiniT := function(xsize, ysize, zsize, width)      
-  K := RealField (10);
+  K := RealField (5);
 
   // normalize the x, y, z functions 
   xnorm := Abs(__xscale(xsize) - __xscale(1));
