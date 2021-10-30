@@ -19,10 +19,19 @@ GHZ := function()
   return TS.1+TS.16;
 end function;
 
+ext3 := function()
+  K := RealField(5);
+  E := Matrix(K,3,3, [0,1,0, -1,0,0, 0,0,0 ] );
+  F := Matrix(K,3,3, [0,0,1, 0,0,0, -1,0,0] );
+  G := Matrix(K,3,3, [0,0,0, 0,0,1, 0,-1,0] );
+  return Tensor( [E,F,G], 2,1);
+
+end function;
+
 adsl2 := function()
   K := RealField(5);
   E := Matrix(K,3,3, [0,2,0, 0,0,1, 0,0,0 ] );
-  F := Matrix(K,3,3, [1,0,0, 0,0,0, 0,0,-1] );
+  F := Matrix(K,3,3, [2,0,0, 0,0,0, 0,0,-2] );
   G := Matrix(K,3,3, [0,0,0, -1,0,0, 0,-2,0] );
   return Tensor( [E,F,G], 2,1);
 end function;

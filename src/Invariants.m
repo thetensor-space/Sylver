@@ -383,6 +383,65 @@ __A_Derivations := function(seq, dims, A, repeats, k)
   return basis;
 end function;
 
+__A_Derivations_mat := function(seq, dims, A, repeats, k)
+  // Initial setup.
+  d := &*(dims);
+  K := Parent(seq[1]);
+  v := #dims;
+  s := &+[dims[v-x]^2 : x in A];
+  k_Subs := Subsets(A, k);
+  M := ZeroMatrix(K, #k_Subs*d, s);
+
+  // Start the bad boy up.
+  vprintf TensorSpace, 1 : "Construting a %o by %o matrix over %o.\n", Ncols(M), 
+    Nrows(M), K;
+
+  // Construct the appropriate matrix.
+  // We work from right to left.
+  row := 1;
+  for B in k_Subs do
+    col := s+1;
+    depth := d;
+    A_comp := {0..v-1} diff A;
+    
+    // Run through all a in A and only do things if a in B.
+    for a in Sort([x : x in A]) do
+      d_a := dims[v-a];
+      col -:= d_a^2;
+      C := {c : c in A_comp | c lt a};
+      A_comp diff:= C;
+      depth div:= d_a * &*([dims[v-c] : c in C] cat [1]);
+      B_row := row;
+
+      if a in B then
+        // A chopped up foliation.
+        Mats := __Coordinate_Spread(seq, dims, a, depth);
+
+        // Add the matrices to our big matrix.
+        I := IdentityMatrix(K, d_a);
+        r := d_a * Nrows(Mats[1]);
+        for X in Mats do
+          InsertBlock(~M, KroneckerProduct(I, X), B_row, col);
+          B_row +:= r;
+        end for;
+      end if;
+
+    end for;
+
+    // Move down a stripe.
+    row +:= d;
+
+  end for;
+
+  // Get the repeats block.
+  vprint TensorSpace, 1 : "Adding in possible fusion data.";
+  M := VerticalJoin(__FusionBlock(K, dims, repeats, A), M);
+  
+  // Solve the linear system.
+  vprintf TensorSpace, 1 : "Computing the nullspace of a %o by %o matrix.\n", 
+    Ncols(M), Nrows(M);
+  return M;
+end function;
 
 // A function to reduce the number of generators of a group or algebra.
 __GetSmallerRandomGenerators := function( X ) 
@@ -713,6 +772,78 @@ intrinsic DerivationAlgebra( t::TenSpcElt, A::{RngIntElt}, k::RngIntElt ) ->
   // Save it
   t`Derivations[2][ind] := basis;
   return D;
+end intrinsic;
+
+intrinsic DerivationAlgebraSVD( t::TenSpcElt, A::{RngIntElt}, k::RngIntElt ) -> 
+  AlgMatLie
+{Returns the (A, k)-derivation algebra of the tensor t.}
+  // Make sure A makes sense.
+  //// BUG OF VALENCE
+  require A subset {0..Valence(t)} : "Unknown coordinates.";
+  require #A gt 0 : "Set must contain at least two coordinates.";
+  if t`Cat`Contra then
+    require 0 notin A : "Integers must be positive for cotensors.";
+  end if;
+  require k ge 1 : "Integer must be at least 2.";
+  require k le #A : "Integer cannot be larger than set size.";
+
+  // Out-source the k=2 case
+  if k eq 2 then
+    _ := CentroidSVD(t, A);
+  end if;
+
+  // Make sure we can obtain the structure constants. 
+  try
+    _ := Eltseq(t);
+  catch err
+    error "Cannot compute structure constants.";
+  end try;
+
+  // Check if the derivations have been computed before.
+  ind := Index(t`Derivations[1], <A, k>);
+  fuse := (k gt 2) select true else false;
+  if Type(t`Derivations[2][ind]) ne RngIntElt then
+    D := __ApproximateAlgebra(t, A, fuse, t`Derivations[2][ind]);
+    return D;
+  end if; 
+
+  // Get the derivations.
+  mat := __A_Derivations_mat(Eltseq(t), [Dimension(X) : X in Frame(t)], A,
+    t`Cat`Repeats, k);
+
+  S, U, V := SingularValueDecomposition(Transpose(mat));
+  // Detect the singular values clustered around 0.
+  sings := [S[i][i] : i in [1..Minimum(Nrows(S),Ncols(S))]];
+"sings:", sings;
+  // Scan last to first looking at the slopes of the normalized 
+  // SVD plot adjacent points.  The first inflection point (slope below -1)
+  // is where we stop.
+  slope := 0;
+  start := #sings;
+  while (start gt 1) 
+    and ((sings[start] eq 0) or (sings[start-1]/sings[start] lt 5 )) do
+    start := start - 1;
+  end while;
+  // while (start > 1) and (slope gt -1 ) do
+  //   slope := (sings[start-1]-sings[start])/(#sings*sings[1]);
+  //   start := start - 1;
+  // end while;
+
+  // Gather the singular vectors incident on these.
+  gens := [ U[i] : i in [start..Nrows(U)]];
+
+  // Construct the algebra and reduce to minimal representation.
+  //D, basis := __ApproximateAlgebra(t, A, true, gens);
+
+  // // Sanity check
+  // if __SANITY_CHECK then
+  //   printf "Sanity check (DerivationAlgebra)\n";
+  //   assert __OperatorSanityCheck(D, k);
+  // end if;
+
+  // // Save it
+  // t`Derivations[2][ind] := basis;
+  return gens;//D;
 end intrinsic;
 
 intrinsic Nucleus( t::TenSpcElt, A::{RngIntElt} ) -> AlgMat
