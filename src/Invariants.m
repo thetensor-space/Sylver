@@ -586,8 +586,9 @@ end intrinsic;
 intrinsic CentroidSVD( t::TenSpcElt, A::{RngIntElt} ) -> .
 {Returns the A-centroid of a real or complex tensor t by SVD methods.}
   // Check that A makes sense.
-  require Type(BaseRing(t)) eq FldRe : "Must be a real field for SVD."
-  require A subset {0..Valence(t)-1} : "Unknown tensor coordinates.";
+  require Type(BaseRing(t)) eq FldRe : "Must be a real field for SVD.";
+  // BUG???? should it be Valence(t) or Valence(t)-1?
+  require A subset {0..Valence(t)} : "Unknown tensor coordinates.";
   require #A ge 2 : "Must be at least two coordinates.";
   if t`Cat`Contra then
     require 0 notin A : "Integers must be positive for cotensors.";
@@ -620,14 +621,15 @@ intrinsic CentroidSVD( t::TenSpcElt, A::{RngIntElt} ) -> .
     repeats := t`Cat`Repeats);
   S, U, V := SingularValueDecomposition(Transpose(mat));
   // Detect the singular values clustered around 0.
-  sings := [S[i][i] : i in [1..Minimum(Nrows(S),Ncosl(S))]];
-  
+  sings := [S[i][i] : i in [1..Minimum(Nrows(S),Ncols(S))]];
+"sings:", sings;
   // Scan last to first looking at the slopes of the normalized 
   // SVD plot adjacent points.  The first inflection point (slope below -1)
   // is where we stop.
   slope := 0;
   start := #sings;
-  while (start > 1) and (sings[start-1]/sings[start] gt 5 ) do
+  while (start gt 1) 
+    and ((sings[start] eq 0) or (sings[start-1]/sings[start] lt 5 )) do
     start := start - 1;
   end while;
   // while (start > 1) and (slope gt -1 ) do
@@ -640,7 +642,7 @@ intrinsic CentroidSVD( t::TenSpcElt, A::{RngIntElt} ) -> .
 
 
   // Construct algebra and reduce to minimal representation
-  C := __ApproximateAlgebra(t, A, true, basis);
+  //C := __ApproximateAlgebra(t, A, true, gens);
 
   // // Sanity check
   // if __SANITY_CHECK then
@@ -650,7 +652,7 @@ intrinsic CentroidSVD( t::TenSpcElt, A::{RngIntElt} ) -> .
 
   // // Checkpoint!
   // t`Derivations[2][ind] := basis;
-  return C;
+  return gens;//C;
 end intrinsic;
 
 intrinsic DerivationAlgebra( t::TenSpcElt ) -> AlgMatLie
