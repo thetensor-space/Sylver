@@ -1,3 +1,23 @@
+import "Util.m" : __GetForms, __GetSlice;
+import "GlobalVars.m" : __SANITY_CHECK;
+import "Invariants.m" : __FusionBlock, __Coordinate_Spread, __ReduceByFuse;
+
+__scan_SVD := function(sings)
+  // Scan last to first looking at the slopes of the normalized 
+  // SVD plot adjacent points.  The first inflection point (slope below -1)
+  // is where we stop.
+  slope := 0;
+  start := #sings;
+//   while (start gt 1) 
+//     and ((sings[start] eq 0) or (sings[start-1]/sings[start] lt 5 )) do
+//     start := start - 1;
+//   end while;
+  while (start gt 1) and (slope gt -1 ) do
+     slope := (sings[start-1]-sings[start])/(#sings*sings[1]);
+     start := start - 1;
+  end while;
+  return start;
+end function;
 
 __A_Centroid_mat := function(seq, dims, A : repeats := {})
   // Initial setup.
@@ -54,7 +74,7 @@ __A_Centroid_mat := function(seq, dims, A : repeats := {})
     M := VerticalJoin(R, M);
   end if;
 
-  return M;
+  return Transpose(M);
 end function;
 
 
@@ -112,10 +132,11 @@ __A_Derivations_mat := function(seq, dims, A, repeats, k)
   // Get the repeats block.
   vprint TensorSpace, 1 : "Adding in possible fusion data.";
   M := VerticalJoin(__FusionBlock(K, dims, repeats, A), M);
-  
+  M := Transpose(M); // fix this 
+
   // Solve the linear system.
-  vprintf TensorSpace, 1 : "Computing the nullspace of a %o by %o matrix.\n", 
-    Ncols(M), Nrows(M);
+  vprintf TensorSpace, 1 : "Created %o by %o relation matrix.\n", 
+    Nrows(M), Ncols(M);
   return M;
 end function;
 
@@ -150,12 +171,23 @@ __ApproximateAlgebra := function(t, A, F, B);
   return Operators, B;
 end function;
 
-intrinsic DerivationAlgebraSVD( t::TenSpcElt, A::{RngIntElt}, k::RngIntElt ) -> 
-  AlgMatLie
+intrinsic DerivationAlgebraSVD( t::TenSpcElt : DownSize := false ) -> .
+{Returns the (A, k)-derivation algebra of a real tensor t using SVD method.}
+    return DerivationAlgebraSVD(t,{0..Valence(t)-1}, Valence(t));
+end intrinsic;
+
+intrinsic DerivationAlgebraSVD( t::TenSpcElt, A::{RngIntElt} : DownSize := false ) -> .
+{Returns the A-derivation algebra of the tensor t.}
+  return DerivationAlgebraSVD(t, A, #A : DownSize := DownSize );
+end intrinsic;
+
+
+intrinsic DerivationAlgebraSVD( t::TenSpcElt, A::{RngIntElt}, k::RngIntElt : DownSize := false) -> .
 {Returns the (A, k)-derivation algebra of a real tensor t using SVD method.}
   // Make sure A makes sense.
-  //// BUG OF VALENCE
-  require A subset {0..Valence(t)} : "Unknown coordinates.";
+  require Type(BaseRing(t)) eq FldRe : "Must be a real field for SVD.";
+
+  require A subset {0..Valence(t)-1} : "Unknown coordinates.";
   require #A gt 0 : "Set must contain at least two coordinates.";
   if t`Cat`Contra then
     require 0 notin A : "Integers must be positive for cotensors.";
@@ -184,26 +216,41 @@ intrinsic DerivationAlgebraSVD( t::TenSpcElt, A::{RngIntElt}, k::RngIntElt ) ->
   end if; 
 
   // Get the derivations.
-  mat := __A_Derivations_mat(Eltseq(t), [Dimension(X) : X in Frame(t)], A,
-    t`Cat`Repeats, k);
+  mat := __A_Derivations_mat(
+            Eltseq(t), 
+            [Dimension(X) : X in Frame(t)],
+            A,
+            t`Cat`Repeats, 
+            k);
+  // Computing Singular values
 
-  S, U, V := SingularValueDecomposition(Transpose(mat));
+
+  vprintf TensorSpace, 1 : "Resizing %o by %o relation matrix.\n", 
+    Nrows(mat), Ncols(mat);
+
+  // Downsize.
+  if DownSize then
+    max := Minimum(Ncols(mat),Round(1.1*Nrows(mat)));
+    js := [1..Ncols(mat)];  
+    for i in [1..(Ncols(mat)-max)] do
+        Remove(~js, Random([1..#js]) );
+    end for;
+      vprintf TensorSpace, 1 : "Using lables %o.\n", js;
+    mat := Matrix(BaseRing(mat),Nrows(mat),#js, [mat[u[1],u[2]] : u in CartesianProduct([1..Nrows(mat)],js) ] );
+  end if;
+
+  vprintf TensorSpace, 1 : "Computing singular values of %o by %o relation matrix.\n", 
+    Nrows(mat), Ncols(mat);
+
+  thyme:=Cputime();
+  S, U, V := SingularValueDecomposition(mat);
+  Cputime(thyme);
+  vprint TensorSpace, 1 : "Solve took time ", thyme;
   // Detect the singular values clustered around 0.
   sings := [S[i][i] : i in [1..Minimum(Nrows(S),Ncols(S))]];
-"sings:", sings;
+  vprintf TensorSpace, 1 : "Singuler values %o\n", sings;
   // Scan last to first looking at the slopes of the normalized 
-  // SVD plot adjacent points.  The first inflection point (slope below -1)
-  // is where we stop.
-  slope := 0;
-  start := #sings;
-  while (start gt 1) 
-    and ((sings[start] eq 0) or (sings[start-1]/sings[start] lt 5 )) do
-    start := start - 1;
-  end while;
-  // while (start > 1) and (slope gt -1 ) do
-  //   slope := (sings[start-1]-sings[start])/(#sings*sings[1]);
-  //   start := start - 1;
-  // end while;
+  start := __scan_SVD(sings);
 
   // Gather the singular vectors incident on these.
   gens := [ U[i] : i in [start..Nrows(U)]];
@@ -222,13 +269,17 @@ intrinsic DerivationAlgebraSVD( t::TenSpcElt, A::{RngIntElt}, k::RngIntElt ) ->
   return gens;//D;
 end intrinsic;
 
+intrinsic Centroid( t::TenSpcElt ) -> .
+{Returns the centroid of a real or complex tensor t by SVD methods.}
+  return Centroid(t, {0..Valence(t)-1});
+end intrinsic;
+
 
 intrinsic CentroidSVD( t::TenSpcElt, A::{RngIntElt} ) -> .
 {Returns the A-centroid of a real or complex tensor t by SVD methods.}
   // Check that A makes sense.
   require Type(BaseRing(t)) eq FldRe : "Must be a real field for SVD.";
-  // BUG???? should it be Valence(t) or Valence(t)-1?
-  require A subset {0..Valence(t)} : "Unknown tensor coordinates.";
+  require A subset {0..Valence(t)-1} : "Unknown tensor coordinates.";
   require #A ge 2 : "Must be at least two coordinates.";
   if t`Cat`Contra then
     require 0 notin A : "Integers must be positive for cotensors.";
@@ -259,23 +310,12 @@ intrinsic CentroidSVD( t::TenSpcElt, A::{RngIntElt} ) -> .
 
   mat := __A_Centroid_mat(Eltseq(t), [Dimension(X) : X in Frame(t)], A : 
     repeats := t`Cat`Repeats);
-  S, U, V := SingularValueDecomposition(Transpose(mat));
+  S, U, V := SingularValueDecomposition(mat);
   // Detect the singular values clustered around 0.
   sings := [S[i][i] : i in [1..Minimum(Nrows(S),Ncols(S))]];
-"sings:", sings;
+  vprintf TensorSpace, 1 : "Singuler values\n", [Round(s*100)/100 : s in sings];
   // Scan last to first looking at the slopes of the normalized 
-  // SVD plot adjacent points.  The first inflection point (slope below -1)
-  // is where we stop.
-  slope := 0;
-  start := #sings;
-  while (start gt 1) 
-    and ((sings[start] eq 0) or (sings[start-1]/sings[start] lt 5 )) do
-    start := start - 1;
-  end while;
-  // while (start > 1) and (slope gt -1 ) do
-  //   slope := (sings[start-1]-sings[start])/(#sings*sings[1]);
-  //   start := start - 1;
-  // end while;
+  start := __scan_SVD(sings);
 
   // Gather the singular vectors incident on these.
   gens := [ U[i] : i in [start..Nrows(U)]];

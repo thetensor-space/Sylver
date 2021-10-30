@@ -36,7 +36,7 @@ adsl2 := function()
   return Tensor( [E,F,G], 2,1);
 end function;
 
-test := function( d )
+test1 := function( d, epsilon )
   // i+j=k
   TS := KTensorSpace( RealField(5), [d,d,d]);
   T := TS!0;
@@ -49,11 +49,14 @@ test := function( d )
       end for;
     end for;
   end for;
-  return T;
+  nT := AddNoise(T, epsilon);
+  return T, nT;
 end function;
 
-
-test2 := function( d )
+/*
+ * dimension and error
+ */
+test2 := function( d, epsilon )
   // i+j=k
   TS := KTensorSpace( RealField(5), [d,d,d]);
   T := TS!0;
@@ -66,5 +69,7 @@ test2 := function( d )
       end for;
     end for;
   end for;
-  return T;
+
+  nT := AddNoise(T, epsilon);
+  return T, nT;
 end function;

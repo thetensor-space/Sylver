@@ -1,0 +1,9 @@
+
+AttachSpec("../TensorSpace/TensorSpace.spec"); 
+AttachSpec("Sylver.spec");
+load "test/noise.mag";
+SetVerbose( "TensorSpace", 1);
+t,nt := test1(5,0.1);
+gens :=DerivationAlgebraSVD(t);
+ngens := DerivationAlgebraSVD(nt);
+
