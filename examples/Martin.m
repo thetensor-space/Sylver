@@ -70,53 +70,30 @@ end for;
 */
 
         /*---- Martin's second construction ----*/
-        
-K := RealField (10);
 
 // x function for the surface
 __xscale := function (i)
-return (30+i)^2;
+  return (30+i)^2;
 end function;
 
 // y function for the surface
 __yscale := function (i)
-return (40+i)^2;
+  return (40+i)^2;
 end function;
 
 // z function for the surface
 __zscale := function (i)
-return (50+i)^2;
+  return (50+i)^2;
 end function;
 
-// size of the tensor
-xsize := 5;
-ysize := 10;
-zsize := 10;
-
-// thicknes of the surface
-width := 1;
-
-
-// normalize the x, y, z functions 
-__xnorm := Abs(__xscale(xsize) - __xscale(1));
-__xavg := (__xscale(xsize) + __xscale(1)) /2 ;
-
-__ynorm := Abs(__yscale(ysize) - __yscale(1));
-__yavg := (__yscale(ysize) + __yscale(1)) /2 ;
-
-__znorm := Abs(__zscale(zsize) - __zscale(1));
-__zavg := (__zscale(zsize) + __zscale(1)) /2 ;
-
-
-// computes the equation of the surface
-__surface_eq := function(i,j,k)
-return xsize*(__xscale(i) - __xavg)/__xnorm + ysize*(__yscale(j) - __yavg)/__ynorm + zsize*(__zscale(k) - __zavg)/__znorm;  
+  // computes the equation of the surface
+__surface_eq := function(x,y,z, i,j,k)
+ return x[1]*(__xscale(i) - x[2])/x[3] + y[1]*(__yscale(j) - y[2])/y[3] + z[1]*(__zscale(k) - z[2])/z[3];  
 end function;
-
 
 // generate entries which are random numbers with norm ~ exp( - C (surface_eq)^2)
-__entry := function(i,j,k)
-	s := 2* __surface_eq(i,j,k)/width;
+__entry := function(x,y,z, width,i,j,k)
+	s := 2* __surface_eq(x,y,z, i,j,k)/width;
 	r := 0;
 	// no need to randomly generate tiny numbers
 	if Abs(s) gt 5 then
@@ -125,14 +102,29 @@ __entry := function(i,j,k)
 	return r;
 end function;
 
+MartiniT := function(xsize, ysize, zsize, width)      
+  K := RealField (10);
 
-// builds the tensor
-t := Tensor ([xsize,ysize,zsize] , [ K!0 : s in [1..xsize*ysize*zsize] ]);
-for i in [1..xsize] do
-	for j in [1..ysize] do 
-		for k in [1..zsize] do
-			Assign (~t, [i,j,k], __entry (i,j,k));
-		end for;
-	end for;
-end for;
+  // normalize the x, y, z functions 
+  xnorm := Abs(__xscale(xsize) - __xscale(1));
+  xavg := (__xscale(xsize) + __xscale(1)) /2 ;
+  x := <xsize,xavg,xnorm>;
 
+  ynorm := Abs(__yscale(ysize) - __yscale(1));
+  yavg := (__yscale(ysize) + __yscale(1)) /2 ;
+  y := <ysize,yavg,ynorm>;
+
+  znorm := Abs(__zscale(zsize) - __zscale(1));
+  zavg := (__zscale(zsize) + __zscale(1)) /2 ;
+  z := <zsize,zavg,znorm>;
+  // builds the tensor
+  t := Tensor ([xsize,ysize,zsize] , [ K!0 : s in [1..xsize*ysize*zsize] ]);
+  for i in [1..xsize] do
+    for j in [1..ysize] do 
+      for k in [1..zsize] do
+        Assign (~t, [i,j,k], __entry (x,y,z,width,i,j,k));
+      end for;
+    end for;
+  end for;
+  return t;
+end function;
