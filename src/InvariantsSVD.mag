@@ -171,18 +171,18 @@ __ApproximateAlgebra := function(t, A, F, B);
   return Operators, B;
 end function;
 
-intrinsic DerivationAlgebraSVD( t::TenSpcElt : DownSize := false ) -> .
+intrinsic DerivationAlgebraSVD( t::TenSpcElt : DownSize := -1.0 ) -> .
 {Returns the (A, k)-derivation algebra of a real tensor t using SVD method.}
-    return DerivationAlgebraSVD(t,{0..Valence(t)-1}, Valence(t));
+    return DerivationAlgebraSVD(t,{0..Valence(t)-1}, Valence(t) : DownSize := DownSize );
 end intrinsic;
 
-intrinsic DerivationAlgebraSVD( t::TenSpcElt, A::{RngIntElt} : DownSize := false ) -> .
+intrinsic DerivationAlgebraSVD( t::TenSpcElt, A::{RngIntElt} : DownSize := -1.0 ) -> .
 {Returns the A-derivation algebra of the tensor t.}
   return DerivationAlgebraSVD(t, A, #A : DownSize := DownSize );
 end intrinsic;
 
 
-intrinsic DerivationAlgebraSVD( t::TenSpcElt, A::{RngIntElt}, k::RngIntElt : DownSize := false) -> .
+intrinsic DerivationAlgebraSVD( t::TenSpcElt, A::{RngIntElt}, k::RngIntElt : DownSize := -1.0) -> .
 {Returns the (A, k)-derivation algebra of a real tensor t using SVD method.}
   // Make sure A makes sense.
   require Type(BaseRing(t)) eq FldRe : "Must be a real field for SVD.";
@@ -229,8 +229,8 @@ intrinsic DerivationAlgebraSVD( t::TenSpcElt, A::{RngIntElt}, k::RngIntElt : Dow
     Nrows(mat), Ncols(mat);
 
   // Downsize.
-  if DownSize then
-    max := Minimum(Ncols(mat),Round(1.1*Nrows(mat)));
+  if DownSize gt 0 then
+    max := Minimum(Ncols(mat),Round((1+DownSize)*Nrows(mat)));
     js := [1..Ncols(mat)];  
     for i in [1..(Ncols(mat)-max)] do
         Remove(~js, Random([1..#js]) );

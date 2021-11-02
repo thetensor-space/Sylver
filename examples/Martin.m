@@ -69,6 +69,10 @@ end for;
 
 */
 
+__add_noise := function (a, epsilon)
+  return a + epsilon * Random ([-1000..1000]) / 1000;
+end function;
+
         /*---- Martin's second construction ----*/
 
 // x function for the surface
@@ -91,6 +95,7 @@ __surface_eq := function(x,y,z, i,j,k)
  return x[1]*(__xscale(i) - x[2])/x[3] + y[1]*(__yscale(j) - y[2])/y[3] + z[1]*(__zscale(k) - z[2])/z[3];  
 end function;
 
+
 // generate entries which are random numbers with norm ~ exp( - C (surface_eq)^2)
 __entry := function(x,y,z, width,i,j,k)
 	s := 2* __surface_eq(x,y,z, i,j,k)/width;
@@ -104,7 +109,7 @@ __entry := function(x,y,z, width,i,j,k)
 end function;
 
 MartiniT := function(xsize, ysize, zsize, width)      
-  K := RealField (5);
+  K := RealField (10);
 
   // normalize the x, y, z functions 
   xnorm := Abs(__xscale(xsize) - __xscale(1));

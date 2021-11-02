@@ -1,9 +1,18 @@
 
 AttachSpec("../TensorSpace/TensorSpace.spec"); 
 AttachSpec("Sylver.spec");
-load "test/noise.mag";
 SetVerbose( "TensorSpace", 1);
+
+load "test/noise.mag";
 t,nt := test1(5,0.1);
 gens :=DerivationAlgebraSVD(t);
 ngens := DerivationAlgebraSVD(nt);
 
+
+AttachSpec("../TensorSpace/TensorSpace.spec"); 
+AttachSpec("Sylver.spec");
+SetVerbose( "TensorSpace", 1);
+load "examples/Martin.m";
+t := MartiniT(10,10,10,3);
+
+gen := DerivationAlgebraSVD(t : DownSize := 0.5);
