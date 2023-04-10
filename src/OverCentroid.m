@@ -58,12 +58,11 @@ end function;
 
 
 // Given a sequence of submodules of U, return an isomorphism from U to V
-__Vector_Space_Iso := function(I)
+__Vector_Space_Iso := function(I, E)
   K := BaseRing(I[1]);
   d1 := Degree(I[1]);
   d2 := Dimension(I[1]);
   e := #I;
-  E := GF(#K^d2);
   U := VectorSpace(K, d1);
   V := VectorSpace(E, e);
 
@@ -104,9 +103,13 @@ __Write_over_centroid := function(t, X)
   F := BaseRing(t);
   C := Centroid(t); // already computed and saved
 
-  // We write t over a standard copy.
+  // We write t over a standard copy (if it exists).
   K := ext< F | MinimalPolynomial(X) >; 
-  E := GF(#K);
+  if IsFinite(K) then 
+    E := GF(#K);
+  else 
+    E := K;
+  end if;
   phi, phi_inv := __Get_Field_Iso(K, E);
   coeffs := Eltseq(E.1 @ phi_inv);
   Z := &+[coeffs[i]*X^(i-1) : i in [1..#coeffs]];
@@ -121,7 +124,7 @@ __Write_over_centroid := function(t, X)
   Subs := [*__Get_Indecomp_Submods(B) : B in blocks*];
 
   // Get the isomorphisms from original vector spaces to new vector spaces.
-  Isos := [*__Vector_Space_Iso(I) : I in Subs*];
+  Isos := [*__Vector_Space_Iso(I, E) : I in Subs*];
 
   // Build an anti-cohomotopism to construct our new tensor
   Fused := RepeatPartition(TensorCategory(t));
@@ -144,10 +147,10 @@ end function;
 //                                  Intrinsics
 // =============================================================================
 
-intrinsic TensorOverCentroid( t::TenSpcElt ) -> TenSpcElt, Hmtp
+intrinsic TensorOverCentroid( t::TenSpcElt : gen:=false ) -> TenSpcElt, Hmtp
 {Returns the fully nondegenerate indecomposbale tensor over a field isomorphic 
 to the residue field of the centroid of t.}
-  require IsFinite(BaseRing(t)) : "Base ring of tensor must be finite.";
+  // require IsFinite(BaseRing(t)) : "Base ring of tensor must be finite.";
   C := Centroid(t);
   J, S := WedderburnDecomposition(C);
 
@@ -160,11 +163,23 @@ to the residue field of the centroid of t.}
   end if;
 
   // Run a few checks to make sure we can handle the data.
-  require IsCommutative(S) : "Tensor is not fully nondegenerate.";
-  cyclic_check, X := IsCyclic(S);
-  require cyclic_check : "Centroid must be a commutative local ring.";
-  require IsIrreducible(MinimalPolynomial(X)) : 
-      "Tensor must be indecomposable.";
+  if Type(gen) eq BoolElt then 
+    require IsCommutative(S) : "Tensor is not fully nondegenerate.";
+    cyclic_check, X := IsCyclic(S);
+    require cyclic_check : "Centroid must be a commutative local ring.";
+    require IsIrreducible(MinimalPolynomial(X)) : 
+        "Tensor must be indecomposable.";
+  else 
+    require ISA(Type(gen), Mtrx) : "Generator provided must be a matrix.";
+    try 
+      A := sub< Parent(gen) | gen, gen^0 >;
+      require BaseRing(A) eq BaseRing(C) : "Underlying ring of generator is not the same as the tensor.";
+      require Dimension(A) eq Dimension(C) : "Generator provided does not generate centroid.";
+      X := gen;
+    catch e 
+      error "Generator provided must be an element of the centroid.";
+    end try;
+  end if;
   
   // Now we write t over S.
   s, H := __Write_over_centroid(t, X);

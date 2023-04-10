@@ -567,8 +567,7 @@ intrinsic Nucleus( t::TenSpcElt, a::RngIntElt, b::RngIntElt ) -> AlgMat
   // Make sure {a,b} make sense.
   require a ne b : "Integers must be distinct.";
   v := Valence(t);
-  require {a,b} subset {0..v-1} : \
-    "Integers must correspond to Cartesian factors.";
+  require {a,b} subset {0..v-1} : "Integers must correspond to Cartesian factors.";
   if t`Cat`Contra then
     require 0 notin {a,b} : "Integers must be positive for cotensors.";
   end if;
@@ -611,8 +610,7 @@ intrinsic SelfAdjointAlgebra( t::TenSpcElt, a::RngIntElt, b::RngIntElt )
   // Make sure {a,b} make sense.
   require a ne b : "Integers must be distinct.";
   v := Valence(t);
-  require {a,b} subset {0..v-1} : \
-    "Integers must correspond to Cartesian factors.";
+  require {a,b} subset {0..v-1} : "Integers must correspond to Cartesian factors.";
   if t`Cat`Contra then
     require 0 notin {a,b} : "Integers must be positive for cotensors.";
   end if;
